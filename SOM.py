@@ -2,30 +2,40 @@ from xml.etree.ElementInclude import include
 import numpy as np
 from matplotlib import pyplot as plt
 from matplotlib import patches as patches
+from matplotlib.widgets import TextBox
 
 class SOM():
-    
-    def __init__(self, tipo_vecindario = 'Cruz', tipo_distancia = 'Euclideana', tamanio_malla = 20, max_epocas = 500, taza_aprendizaje = 0.5):
-        self.data_set = self.cargar_datos()
+    def __init__(self, tipo_vecindario = 'Cruz', tipo_distancia = 'Euclideana', max_epocas = 500, taza_aprendizaje = 0.5, filename='dataset.csv',tamanio_malla = [20,20],ventana=None):
+        
         self.tipo_vecindario = tipo_vecindario
         self.tipo_distancia = tipo_distancia
-        self.tamanio_malla = tamanio_malla
+        self.tamanio_malla = np.array(tamanio_malla)
         self.max_epocas = max_epocas
         self.taza_aprendizaje = taza_aprendizaje
+        self.filename=filename
+        self.ventana=ventana
         self.errores_acumulados = list()
+        self.data_set = self.cargar_datos()
+        
     
     def cargar_datos(self):
+        print(self.filename)
         try:
-            archivo = open('dataset.cvv')
+            archivo = open(self.filename,'r')
             datos = []
-            for l in archivo.readlines():
+            for l in archivo.readlines():                
                 a = l.split(',')
-                a = list(map(int, a))[:-1]
+                a = list(map(int,a))[:-1]
                 datos.append(a)
-            archivo.close()
-            return np.array(datos).T
+            archivo.close()        
+            data=np.array(datos).T   
+            if self.ventana is not None:
+                self.ventana.text_box_dimensiones.set_val("Dim: "+str(data.shape))
+                #self.ventana.text_box_dimensiones.set_text("Dim: "+str(data.shape))         
+            return data
         except FileNotFoundError:
             print('No se encontró el archivo')
+        
     
     def entrenar(self):
         m = self.data_set.shape[0]
@@ -35,17 +45,20 @@ class SOM():
 
         tiempo = self.max_epocas / np.log(radio_inicial)
 
-        col_maxes = self.data_set.mac(axis=0)
+        col_maxes = self.data_set.max(axis=0)
         self.data_set = self.data_set / col_maxes[np.newaxis, :]
-
+        print("tamaño de malla")
+        print(self.tamanio_malla)
         self.red = np.random.random((self.tamanio_malla[0], self.tamanio_malla[1], m))
+        print("la net es esta: --------------------------------------")
+        print(self.red)
 
         for i in range(self.max_epocas):
             error = []
 
-            t = self.training_set[:, np.random.randint(0, n)].reshape(np.array([m,1 ]))
+            t = self.data_set[:, np.random.randint(0, n)].reshape(np.array([m,1 ]))
 
-            bmu, bmu_i = self.bmu(t, self.red, m)
+            bmu, bmu_i = self.encontrar_bmu(t, self.red, m)
 
             radio = self.reducir_radio(radio_inicial, i, tiempo)
             aprendizaje = self.reducir_taza_aprendizaje(self.taza_aprendizaje, i, self.max_epocas)
@@ -56,7 +69,7 @@ class SOM():
                     peso = self.red[x, y, :].reshape(m, 1)
 
                     if self.tipo_distancia == 'Euclideana':
-                        w_dist = np.sum((np.arrya([x, y]) - bmu_i) ** 2)
+                        w_dist = np.sum((np.array([x, y]) - bmu_i) ** 2)
                     elif self.tipo_distancia == 'Manhattan':
                         w_dist = np.sum(np.fabs(np.array([x, y]) - bmu_i))
 
@@ -78,7 +91,7 @@ class SOM():
                         error.append(np.sqrt(np.dot(dist, dist.T)))
                 self.errores_acumulados.append(float(sum(error) / float(len(self.data_set.T))))
     
-    def bmu(self, t, red, m):
+    def encontrar_bmu(self, t, red, m):
         bmu_i = np.array([0, 0])
         min_distancia = np.iinfo(np.int).max
 
@@ -117,17 +130,33 @@ class SOM():
         return float(sum(errores) / float(len(self.training_set.T)))
 
     def graficar(self):
-        fig = plt.figure()
-        ax = fig.add_subplot(111, aspect='equal')
-        ax.set_xlim((0, self.red.shape[0]+1))
-        ax.set_ylim((0, self.red.shape[1]+1))
-        ax.set_title('Self-Organising Map. Iteracion = %d' % self.max_ephocs)
+        if self.ventana is None:
+            fig = plt.figure()
+            ax = fig.add_subplot(111, aspect='equal')
+            ax.set_xlim((0, self.red.shape[0]+1))
+            ax.set_ylim((0, self.red.shape[1]+1))
+            ax.set_title('Self-Organising Map. Iteracion = %d' % self.max_epocas)
 
-        for x in range(1, self.red.shape[0] + 1):
-            for y in range(1, self.red.shape[1] + 1):
-                face_color = self.red[x-1,y-1,:]
-                face_color = [sum(face_color[:3])/3,sum(face_color[3:6])/3, sum(face_color[6:])/4]
-                ax.add_patch(patches.Rectangle((x-0.5, y-0.5), 1, 1,
-                            facecolor=face_color,
-                            edgecolor='none'))
+            for x in range(1, self.red.shape[0] + 1):
+                for y in range(1, self.red.shape[1] + 1):
+                    face_color = self.red[x-1,y-1,:]
+                    face_color = [sum(face_color[:3])/3,sum(face_color[3:6])/3, sum(face_color[6:])/4]
+                    ax.add_patch(patches.Rectangle((x-0.5, y-0.5), 1, 1,
+                                facecolor=face_color,
+                                edgecolor='none'))
+        else:
+            self.ventana.grafica.set_aspect('equal')
+            self.ventana.grafica.set_xlim((0, self.red.shape[0]+1))
+            self.ventana.grafica.set_ylim((0, self.red.shape[1]+1))
+            self.ventana.grafica.set_title('Self-Organising Map. Iteracion = %d' % self.max_epocas)
+
+            for x in range(1, self.red.shape[0] + 1):
+                for y in range(1, self.red.shape[1] + 1):
+                    face_color = self.red[x-1,y-1,:]
+                    face_color = [sum(face_color[:3])/3,sum(face_color[3:6])/3, sum(face_color[6:])/4]
+                    self.ventana.grafica.add_patch(patches.Rectangle((x-0.5, y-0.5), 1, 1,
+                                facecolor=face_color,
+                                edgecolor='none'))
+        
         plt.show()
+            
