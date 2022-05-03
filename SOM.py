@@ -1,10 +1,13 @@
+from cProfile import label
 from xml.etree.ElementInclude import include
 import numpy as np
 from matplotlib import pyplot as plt
 from matplotlib import patches as patches
 from matplotlib.widgets import TextBox
+import matplotlib
 
 class SOM():
+    textos=[]
     def __init__(self, tipo_vecindario = 'Cruz', tipo_distancia = 'Euclideana', max_epocas = 500, taza_aprendizaje = 0.5, filename='dataset.csv',tamanio_malla = [20,20],ventana=None):
         
         self.tipo_vecindario = tipo_vecindario
@@ -19,13 +22,13 @@ class SOM():
         
     
     def cargar_datos(self):
-        print(self.filename)
         try:
             archivo = open(self.filename,'r')
             datos = []
-            for l in archivo.readlines():                
-                a = l.split(',')
-                a = list(map(int,a))[:-1]
+            for l in archivo.readlines():                 
+                b=l.strip('\n')        
+                a = b.split(',')            
+                a = list(map(int,a))                
                 datos.append(a)
             archivo.close()        
             data=np.array(datos).T   
@@ -47,17 +50,19 @@ class SOM():
 
         col_maxes = self.data_set.max(axis=0)
         self.data_set = self.data_set / col_maxes[np.newaxis, :]
-        print("tamaño de malla")
-        print(self.tamanio_malla)
+        #print("dataset")
+        #print(self.data_set)
+        #print("tamaño de malla")
+        #print(self.tamanio_malla)
         self.red = np.random.random((self.tamanio_malla[0], self.tamanio_malla[1], m))
-        print("la net es esta: --------------------------------------")
-        print(self.red)
+        #print("la net es esta: --------------------------------------")
+        #print(self.red)
 
         for i in range(self.max_epocas):
-            error = []
+            
 
             t = self.data_set[:, np.random.randint(0, n)].reshape(np.array([m,1 ]))
-
+            
             bmu, bmu_i = self.encontrar_bmu(t, self.red, m)
 
             radio = self.reducir_radio(radio_inicial, i, tiempo)
@@ -79,7 +84,7 @@ class SOM():
 
                         self.red[x, y, :] = nuevo_peso.reshape(1, m)
                         dist = abs(bmu.reshape(m) - np.mean(self.data_set, axis=1))
-                        error.append(np.sqrt(np.dot(dist, dist.T)))
+                        
 
                     elif self.tipo_vecindario == 'Estrella' and w_dist <= radio**4:
                         influencia = self.calcular_influencia(w_dist, radio)
@@ -88,8 +93,8 @@ class SOM():
 
                         self.red[x, y, :] = nuevo_peso.reshape(1, m)
                         dist = abs(bmu.reshape(m) - np.mean(self.data_set, axis=1))
-                        error.append(np.sqrt(np.dot(dist, dist.T)))
-                self.errores_acumulados.append(float(sum(error) / float(len(self.data_set.T))))
+                        
+                
     
     def encontrar_bmu(self, t, red, m):
         bmu_i = np.array([0, 0])
@@ -120,16 +125,27 @@ class SOM():
     def calcular_influencia(self, distancia, radio):
         return np.exp(-distancia / (2 * (radio**2)))
 
-    def calcular_error(self):
-        errores = list()
-        for vector in self.data_set.T:
-            indice = np.argmin(np.sum((self.red - vector) ** 2, axis=2))
-            w = np.array([int(indice / self.red.shape[0]), indice % self.red.shape[1]])
-            dist = self.red[w[0], w[1]] - vector
-            errores.append(np.sqrt(np.dot(dist, dist.T)))
-        return float(sum(errores) / float(len(self.training_set.T)))
+    def calcular_pertenencia_de_dataset(self):
+        
+        m = self.data_set.shape[0]
+        n = self.data_set.shape[1]
+        self.text_map=np.zeros((self.red.shape[0],self.red.shape[1]), dtype=int)
+        
+        for i in range(n):
+            x=self.data_set[:, i].reshape(np.array([m,1 ]))
+            bmu, bmu_i = self.encontrar_bmu(x, self.red, m)
+            print("El dato numero:"+str(i)+"pertenece a la neurona:"+str(bmu_i))            
+            self.text_map[bmu_i[0]][bmu_i[1]]+=1
+        for x in range(1, self.red.shape[0] + 1):
+                for y in range(1, self.red.shape[1] + 1):
+                    self.ventana.grafica.text(x,y,str(self.text_map[x-1][y-1]),fontsize=8)
+        
+
 
     def graficar(self):
+        col_aux=[]
+        x_aux=[]
+        y_aux=[]
         if self.ventana is None:
             fig = plt.figure()
             ax = fig.add_subplot(111, aspect='equal')
@@ -145,18 +161,31 @@ class SOM():
                                 facecolor=face_color,
                                 edgecolor='none'))
         else:
-            self.ventana.grafica.set_aspect('equal')
+            self.ventana.grafica.set_aspect(1)
             self.ventana.grafica.set_xlim((0, self.red.shape[0]+1))
             self.ventana.grafica.set_ylim((0, self.red.shape[1]+1))
             self.ventana.grafica.set_title('Self-Organising Map. Iteracion = %d' % self.max_epocas)
-
+            cmap = matplotlib.cm.get_cmap('viridis')
             for x in range(1, self.red.shape[0] + 1):
                 for y in range(1, self.red.shape[1] + 1):
                     face_color = self.red[x-1,y-1,:]
-                    face_color = [sum(face_color[:3])/3,sum(face_color[3:6])/3, sum(face_color[6:])/4]
-                    self.ventana.grafica.add_patch(patches.Rectangle((x-0.5, y-0.5), 1, 1,
-                                facecolor=face_color,
-                                edgecolor='none'))
+                    promedio=sum(face_color[:])/len(face_color)
+                    
+                    x_aux.append(x)
+                    y_aux.append(y)
+                    col_aux.append(promedio*100)
+                    
+                    #self.ventana.grafica.add_patch(patches.Rectangle((x-0.5, y-0.5), 1, 1,
+                     #           facecolor=rgba,
+                      #          edgecolor='none'))
+                    #self.ventana.grafica.text(x,y,str(x)+','+str(y),fontsize=8)
+        #self.ventana.plot_colorbar(x_aux,y_aux,col_aux)
         
+        
+        s = ((self.ventana.grafica.get_window_extent().width  / (self.red.shape[0]+1.) * 72./self.ventana.fig.dpi) ** 2)
+        
+        self.ventana.grafica.scatter(x=x_aux, y=y_aux, c=col_aux, cmap="viridis",marker='.',s=s)
+        self.calcular_pertenencia_de_dataset()
+
         plt.show()
             

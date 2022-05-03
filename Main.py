@@ -44,6 +44,7 @@ class Ventana:
 
     def __init__(self):
         #Configuracion inicial de la interfaz grafica.
+       
         mpl.rcParams['toolbar'] = 'None'
         self.fig,self.grafica = plt.subplots()
         self.fig.canvas.manager.set_window_title('Self Organinzed Maps - SOM')
@@ -106,7 +107,7 @@ class Ventana:
         plt.show()
 
     def indice(self,label):
-        print(label)
+        
         if(label=='X'):
             self.tipo_rejilla=0
         else:
@@ -163,6 +164,12 @@ class Ventana:
             self.som_entrenado=True
             print("termino de entrenar")
             self.som.graficar()
+    def plot_colorbar(self,x_x,y_y,c_c):
+        self.grafica.scatter(x=x_x, y=y_y, c=c_c, cmap="viridis",marker='s',s=120)
+        plt.show()
     
 if __name__ == '__main__':
     Ventana()
+
+    #20 = 40
+    #10
