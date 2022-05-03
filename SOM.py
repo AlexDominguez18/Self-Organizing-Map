@@ -8,6 +8,7 @@ import matplotlib
 
 class SOM():
     textos=[]
+    relacion_datos=[]
     def __init__(self, tipo_vecindario = 'Cruz', tipo_distancia = 'Euclideana', max_epocas = 500, taza_aprendizaje = 0.5, filename='dataset.csv',tamanio_malla = [20,20],ventana=None):
         
         self.tipo_vecindario = tipo_vecindario
@@ -27,10 +28,16 @@ class SOM():
             datos = []
             for l in archivo.readlines():                 
                 b=l.strip('\n')        
-                a = b.split(',')            
-                a = list(map(int,a))                
+                a = b.split(',')  
+                print(a)
+                self.relacion_datos.append(a[0])
+                a=a[1:3]   
+                 
+                a = list(map(float,a))          
                 datos.append(a)
             archivo.close()        
+            print("datos")
+            print(datos)
             data=np.array(datos).T   
             if self.ventana is not None:
                 self.ventana.text_box_dimensiones.set_val("Dim: "+str(data.shape))
@@ -41,6 +48,7 @@ class SOM():
         
     
     def entrenar(self):
+        print(self.data_set.shape)
         m = self.data_set.shape[0]
         n = self.data_set.shape[1]
 
@@ -134,7 +142,7 @@ class SOM():
         for i in range(n):
             x=self.data_set[:, i].reshape(np.array([m,1 ]))
             bmu, bmu_i = self.encontrar_bmu(x, self.red, m)
-            print("El dato numero:"+str(i)+"pertenece a la neurona:"+str(bmu_i))            
+            print("El dato numero:"+str(i)+"("+str(self.relacion_datos[i])+") pertenece a la neurona:"+str(bmu_i))            
             self.text_map[bmu_i[0]][bmu_i[1]]+=1
         for x in range(1, self.red.shape[0] + 1):
                 for y in range(1, self.red.shape[1] + 1):
